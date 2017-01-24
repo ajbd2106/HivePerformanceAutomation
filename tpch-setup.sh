@@ -1,7 +1,7 @@
 #/bin/bash
 
 function usage {
-	echo "Usage: tpch-setup.sh scale_factor [temp_directory]"
+	echo "Usage: tpch-setup.sh scale_factor [temp_directory] [hive_warehouse_directory] [db prefix name]"
 	exit 1
 }
 
@@ -29,6 +29,8 @@ TABLES="part partsupp supplier customer orders lineitem nation region"
 # Get the parameters.
 SCALE=$1
 DIR=$2
+HIVEDIR=$3
+DBPREFIX=$4
 BUCKETS=13
 RUN_ANALYZE=true
 if [ "X$DEBUG_SCRIPT" != "X" ]; then
@@ -74,7 +76,7 @@ total=8
 
 SCHEMA_TYPE=partitioned
 
-DATABASE=tpch_${SCHEMA_TYPE}_orc_${SCALE}
+DATABASE=${DBPREFIX}_tpch_${SCHEMA_TYPE}_orc_${SCALE}
 
 for t in ${TABLES}
 do
@@ -83,7 +85,8 @@ do
 	    -d DB=${DATABASE} \
 	    -d SOURCE=tpch_text_${SCALE} -d BUCKETS=${BUCKETS} \
             -d SCALE=${SCALE} \
-	    -d FILE=orc"
+	    -d FILE=orc 
+	    -d LOCATION=${HIVEDIR}"
 	runcommand "$COMMAND"
 	if [ $? -ne 0 ]; then
 		echo "Command failed, try 'export DEBUG_SCRIPT=ON' and re-running"
