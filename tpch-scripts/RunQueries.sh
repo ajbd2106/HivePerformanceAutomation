@@ -1,18 +1,19 @@
 #!/bin/bash
 #script usage ./RunQueries.sh SCALE_FACTOR
-if [ $# -ne 1 ]
+if [ $# -ne 2 ]
 then
-	echo "Usage: ./RunQueries.sh SCALE_FACTOR"
+	echo "Usage: ./RunQueries.sh SCALE_FACTOR [Database Prefix]"
 	exit 1
 fi
 
 BENCH_HOME=$( cd "$( dirname "${BASH_SOURCE[0]}" )/../../" && pwd );
 echo "\$BENCH_HOME is set to $BENCH_HOME";
 
-BENCHMARK=hive-testbench
+BENCHMARK=HivePerformanceAutomation
 
 RESULT_DIR=$BENCH_HOME/$BENCHMARK/results/
-mkdir $RESULT_DIR
+mkdir -p $RESULT_DIR
+mkdir -p $RESULT_DIR/logs
 chmod -R 777 $RESULT_DIR
 
 LOG_DIR=$BENCH_HOME/$BENCHMARK/logs/
@@ -35,5 +36,5 @@ fi
 
 for i in {1..22}
 do
-./TpchQueryExecute.sh $1 $i
+./TpchQueryExecute.sh $1 $2 $i
 done

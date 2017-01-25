@@ -10,51 +10,63 @@ else
 	SCALE="$1"
 fi
 
+DBPREFIX=$2
+
 STARTTIME="`date +%s`"
 
-if [ -z "$3" ]
+if [ -z "$4" ]
 then
         RUN_ID=$STARTTIME
 else
-        RUN_ID=$3
+        RUN_ID=$4
 fi
 
 # get home path
 BENCH_HOME=$( cd "$( dirname "${BASH_SOURCE[0]}" )/../../" && pwd );
 echo "\$BENCH_HOME is set to $BENCH_HOME";
 
-BENCHMARK=hive-testbench
+BENCHMARK=HivePerformanceAutomation
+
 # Set path to the hive settings
 HIVE_SETTING=$BENCH_HOME/$BENCHMARK/sample-queries-tpch/testbench.settings
 # Set path to tpc-h queries
 QUERY_DIR=$BENCH_HOME/$BENCHMARK/sample-queries-tpch
 
-RESULT_DIR=$BENCH_HOME/$BENCHMARK/run_$RUN_ID/results/
+RESULT_DIR=$BENCH_HOME/$BENCHMARK/results/run_$RUN_ID/results/
 
-PLAN_DIR=$BENCH_HOME/$BENCHMARK/run_$RUN_ID/plans/
+PLAN_DIR=$BENCH_HOME/$BENCHMARK/results/run_$RUN_ID/plans/
 
-LOG_DIR=$BENCH_HOME/$BENCHMARK/run_$RUN_ID/logs/
+LOG_DIR=$BENCH_HOME/$BENCHMARK/results/run_$RUN_ID/logs/
+
+GLOG_DIR=$BENCH_HOME/$BENCHMARK/results/logs
 
 if [ ! -d "$RESULT_DIR" ]; then
-mkdir $BENCH_HOME/$BENCHMARK/run_$RUN_ID/
-mkdir $RESULT_DIR
+mkdir -p $BENCH_HOME/$BENCHMARK/results/run_$RUN_ID/
+mkdir -p $RESULT_DIR
 fi
 
 if [ ! -d "$PLAN_DIR" ]; then
-mkdir $PLAN_DIR
+mkdir -p $PLAN_DIR
 fi
 
 if [ ! -d "$LOG_DIR" ]; then
-mkdir $LOG_DIR
+mkdir -p $LOG_DIR
 fi
 
 LOG_FILE_EXEC_TIMES="$LOG_DIR/query_times.csv"
+GLOG_FILE_EXEC_TIMES="$GLOG_DIR/query_times.csv"
 EXPLAIN_FILE_EXEC_TIMES="$PLAN_DIR/explain_times.csv"
 
 if [ ! -e "$LOG_FILE_EXEC_TIMES" ]
   then
 	touch "$LOG_FILE_EXEC_TIMES"
 	echo "QUERY,DURATION_IN_SECONDS,STARTTIME,STOPTIME,BENCHMARK,DATABASE,SCALE_FACTOR,FILE_FORMAT,STATUS" >> "${LOG_FILE_EXEC_TIMES}"
+fi
+
+if [ ! -e "$GLOG_FILE_EXEC_TIMES" ]
+  then
+        touch "$GLOG_FILE_EXEC_TIMES"
+        echo "QUERY,DURATION_IN_SECONDS,STARTTIME,STOPTIME,BENCHMARK,DATABASE,SCALE_FACTOR,FILE_FORMAT,STATUS" >> "${GLOG_FILE_EXEC_TIMES}"
 fi
 
 if [ ! -e "$EXPLAIN_FILE_EXEC_TIMES" ]
@@ -70,9 +82,9 @@ if [ ! -w "$LOG_FILE_EXEC_TIMES" ]
 fi
 
 if test $SCALE -lt 1000; then 
-	DATABASE=tpch_flat_orc_$SCALE
+	DATABASE=${DBPREFIX}_tpch_flat_orc_$SCALE
 else
-	DATABASE=tpch_partitioned_orc_$SCALE
+	DATABASE=${DBPREFIX}_tpch_partitioned_orc_$SCALE
 fi
 
 FILE_FORMAT=orc
@@ -85,17 +97,17 @@ TIMEOUT="3h"
 
 # Execute query
 	ENGINE=hive
-	printf -v j "%02d" $2
-	echo "Hive query: ${2}"
+	printf -v j "%02d" $3
+	echo "Hive query: ${3}"
 	while [ $RETURN_VAL -ne 0 -a $EXECUTION_COUNT -lt $RETRY_COUNT ]
 	do	
 		EXPLAIN_STARTTIME="`date +%s`"
-		hive -i ${HIVE_SETTING} --database ${DATABASE} -d EXPLAIN="explain formatted" -f ${QUERY_DIR}/tpch_query${2}.sql > ${PLAN_DIR}/plan_${DATABASE}_query${j}.json 2>> ${PLAN_DIR}/debug.log
+		hive -i ${HIVE_SETTING} --database ${DATABASE} -d EXPLAIN="explain formatted" -f ${QUERY_DIR}/tpch_query${3}.sql > ${PLAN_DIR}/plan_${DATABASE}_query${j}.json 2>> ${PLAN_DIR}/debug.log
 		EXPLAIN_ENDTIME="`date +%s`"
 		#Measure time for query execution
 		STARTTIME="`date +%s`" # seconds since epochstart
 
-		timeout ${TIMEOUT} hive -i ${HIVE_SETTING} --database ${DATABASE} -d EXPLAIN="" -f ${QUERY_DIR}/tpch_query${2}.sql > ${RESULT_DIR}/${DATABASE}_query${j}.txt 2>&1
+		timeout ${TIMEOUT} hive -i ${HIVE_SETTING} --database ${DATABASE} -d EXPLAIN="" -f ${QUERY_DIR}/tpch_query${3}.sql > ${RESULT_DIR}/${DATABASE}_query${j}.txt 2>&1
 		RETURN_VAL=$?
 		((EXECUTION_COUNT++))
 		
@@ -114,6 +126,8 @@ TIMEOUT="3h"
 		DURATION="$(($DIFF_IN_SECONDS / 3600 ))h $((($DIFF_IN_SECONDS % 3600) / 60))m $(($DIFF_IN_SECONDS % 60))s"
 		# log the times in query_times.csv file
 		echo "query${j},${DIFF_IN_SECONDS},${STARTTIME},${STOPTIME},${BENCHMARK},${DATABASE},${SCALE},${FILE_FORMAT},${STATUS}" >> ${LOG_FILE_EXEC_TIMES}
+
+		echo "query${j},${DIFF_IN_SECONDS},${STARTTIME},${STOPTIME},${BENCHMARK},${DATABASE},${SCALE},${FILE_FORMAT},${STATUS}" >> ${GLOG_FILE_EXEC_TIMES}
 		# log the explain times in explain_times.csv file
 		echo "query${j},${EXPLAIN_DIFF_IN_SECONDS},${EXPLAIN_STARTTIME},${EXPLAIN_ENDTIME},${BENCHMARK},${DATABASE},${SCALE},${FILE_FORMAT}" >> ${EXPLAIN_FILE_EXEC_TIMES}
 	 done
