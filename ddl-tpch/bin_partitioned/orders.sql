@@ -13,6 +13,7 @@ create table orders (O_ORDERKEY BIGINT,
  O_COMMENT STRING)
  partitioned by (O_ORDERDATE DATE)
 stored as ${FILE}
+LOCATION '${LOCATION}/orders'
 ;
 
 ALTER TABLE orders SET TBLPROPERTIES('orc.bloom.filter.columns'='*','orc.compress'='ZLIB');
